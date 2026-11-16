@@ -10,3 +10,144 @@ format:
     toc-expand: 1
 editor: visual
 ---
+
+# Introduction
+
+I tested H1 using a one-way ANOVA and H2 using a paired samples t-test. I used a .05 significance level for both tests.
+
+# Data Preparation
+
+```{r}
+library(haven)
+library(dplyr)
+
+data <- read_sav("Case31_NS_cleaned.sav")
+
+h1_data <- data |>
+  select(q13r, q33) |>
+  mutate(awareness = factor(as.numeric(q13r),
+                             levels = c(1, 2, 3),
+                             labels = c("Unaware",
+                                        "Aware but have not used",
+                                        "Aware and have used")),
+         q33 = as.numeric(q33)) |>
+  filter(!is.na(awareness), !is.na(q33))
+
+h2_data <- data |>
+  select(q8r, q30) |>
+  mutate(across(everything(), as.numeric)) |>
+  filter(if_all(everything(), \(x) !is.na(x)))
+```
+
+I excluded missing responses separately for each test. For H2, I only included members who answered both questions.
+
+```{r}
+#| include: false
+
+fmt <- function(x) sprintf("%.2f", x)
+
+p_fmt <- function(x) {
+  if (x < .001) "< .001" else paste0("= ", sprintf("%.3f", x))
+}
+```
+
+# H1: Awareness and Whether Services Meet Members' Needs
+
+H1 states that members' awareness of regular share accounts is related to their opinions on whether the credit union's services meet their needs.
+
+- **Independent variable:** Awareness of regular share accounts (Q13r).
+- **Dependent variable:** Agreement that current financial services meet members' needs (Q33).
+- **Null hypothesis:** Mean Q33 ratings are equal across the awareness groups.
+- **Alternative hypothesis:** At least one group has a different mean.
+
+A one-way ANOVA is appropriate because I am comparing a numerical rating across three independent groups.
+
+## Descriptive Statistics
+
+```{r}
+h1_summary <- h1_data |>
+  group_by(awareness) |>
+  summarise(n = n(),
+            Mean = mean(q33),
+            SD = sd(q33),
+            .groups = "drop")
+
+h1_summary |>
+  knitr::kable(digits = 3)
+```
+
+Higher Q33 scores indicate stronger agreement that the services meet members' needs.
+
+## One-Way ANOVA
+
+```{r}
+h1_anova <- aov(q33 ~ awareness, data = h1_data)
+
+summary(h1_anova)
+```
+
+```{r}
+#| include: false
+
+h1_results <- summary(h1_anova)[[1]]
+h1_f <- h1_results[1, "F value"]
+h1_df1 <- h1_results[1, "Df"]
+h1_df2 <- h1_results[2, "Df"]
+h1_p <- h1_results[1, "Pr(>F)"]
+```
+
+The ANOVA gives **F(`r h1_df1`, `r h1_df2`) = `r fmt(h1_f)`, p `r p_fmt(h1_p)`**.
+
+`r if (h1_p < .05) "I reject the null hypothesis. Mean ratings differ across the awareness groups, supporting H1. This shows an association, but it does not establish that awareness causes the difference." else "I fail to reject the null hypothesis. There is not enough evidence that mean ratings differ across the awareness groups, so H1 is not supported."`
+
+## Group Comparisons
+
+```{r}
+if (h1_p < .05) {
+  TukeyHSD(h1_anova)
+}
+```
+
+`r if (h1_p < .05) "I used Tukey's test to check which groups differ. Comparisons with an adjusted p-value below .05 indicate a significant difference between those groups." else "Since the ANOVA was not significant, I did not perform follow-up group comparisons."`
+
+# H2: Opinions about Loan Rates
+
+H2 states that members do not differ in their ratings of the credit union's borrowing rates (Q8r) and their agreement that its loan rates are lower than competitors' rates (Q30).
+
+- **Null hypothesis:** The mean paired difference is zero.
+- **Alternative hypothesis:** The mean paired difference is not zero.
+
+A paired samples t-test is appropriate because the same members answered both questions.
+
+## Descriptive Statistics
+
+```{r}
+data.frame(Item = c("Q8r: Opinion of borrowing rates",
+                    "Q30: Loan rates lower than competitors"),
+           n = c(nrow(h2_data), nrow(h2_data)),
+           Mean = c(mean(h2_data$q8r), mean(h2_data$q30)),
+           SD = c(sd(h2_data$q8r), sd(h2_data$q30))) |>
+  knitr::kable(digits = 3)
+```
+
+Q8r runs from lower to higher borrowing rates. Q30 runs from disagreement to agreement that rates are lower than competitors' rates. These have different meanings, so the comparison is between their numerical ratings.
+
+## Paired Samples t-Test
+
+```{r}
+h2_test <- t.test(h2_data$q8r,
+                   h2_data$q30,
+                   paired = TRUE,
+                   alternative = "two.sided")
+
+h2_test
+```
+
+The test gives **t(`r unname(h2_test$parameter)`) = `r fmt(unname(h2_test$statistic))`, p `r p_fmt(h2_test$p.value)`**. The mean difference (Q8r minus Q30) is **`r fmt(mean(h2_data$q8r - h2_data$q30))`**, with a 95% confidence interval from **`r fmt(h2_test$conf.int[1])` to `r fmt(h2_test$conf.int[2])`**.
+
+`r if (h2_test$p.value < .05) "I reject the null hypothesis. The mean ratings differ significantly, so H2's expectation of no difference is not supported." else "I fail to reject the null hypothesis. There is not enough evidence of a difference between the mean ratings. This is consistent with H2, but it does not prove that the ratings are equal."`
+
+# Appendix
+
+- [GitHub Repo](https://github.com/itsnik1/IC-Case-31)
+- [GH Pages Link](https://itsnik1.github.io/IC-Case-31/Summary%20of%20Data%20Analysis%20for%20H1-H2.html)

@@ -22,6 +22,41 @@ ul.task-list li input[type="checkbox"] {
 width: 0.8em;
 margin: 0 0.8em 0.2em -1em;  vertical-align: middle;
 }
+
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+}
+pre.numberSource { margin-left: 3em; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -2169,8 +2204,27 @@ vertical-align: -.125em;
 <body class="quarto-light">
 
 <div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
-<div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
-  
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active" data-toc-expanded="1">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#data-preparation" id="toc-data-preparation" class="nav-link" data-scroll-target="#data-preparation">Data Preparation</a></li>
+  <li><a href="#h1-awareness-and-whether-services-meet-members-needs" id="toc-h1-awareness-and-whether-services-meet-members-needs" class="nav-link" data-scroll-target="#h1-awareness-and-whether-services-meet-members-needs">H1: Awareness and Whether Services Meet Members’ Needs</a>
+  <ul class="collapse">
+  <li><a href="#descriptive-statistics" id="toc-descriptive-statistics" class="nav-link" data-scroll-target="#descriptive-statistics">Descriptive Statistics</a></li>
+  <li><a href="#one-way-anova" id="toc-one-way-anova" class="nav-link" data-scroll-target="#one-way-anova">One-Way ANOVA</a></li>
+  <li><a href="#group-comparisons" id="toc-group-comparisons" class="nav-link" data-scroll-target="#group-comparisons">Group Comparisons</a></li>
+  </ul></li>
+  <li><a href="#h2-opinions-about-loan-rates" id="toc-h2-opinions-about-loan-rates" class="nav-link" data-scroll-target="#h2-opinions-about-loan-rates">H2: Opinions about Loan Rates</a>
+  <ul class="collapse">
+  <li><a href="#descriptive-statistics-1" id="toc-descriptive-statistics-1" class="nav-link" data-scroll-target="#descriptive-statistics-1">Descriptive Statistics</a></li>
+  <li><a href="#paired-samples-t-test" id="toc-paired-samples-t-test" class="nav-link" data-scroll-target="#paired-samples-t-test">Paired Samples t-Test</a></li>
+  </ul></li>
+  <li><a href="#appendix" id="toc-appendix" class="nav-link" data-scroll-target="#appendix">Appendix</a></li>
+  </ul>
+</nav>
 </div>
 <main class="content" id="quarto-document-content">
 
@@ -2205,7 +2259,231 @@ vertical-align: -.125em;
 </header>
 
 
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+<p>I tested H1 using a one-way ANOVA and H2 using a paired samples t-test. I used a .05 significance level for both tests.</p>
+</section>
+<section id="data-preparation" class="level1">
+<h1>Data Preparation</h1>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(haven)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: package &#39;dplyr&#39; was built under R version 4.5.2</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attaching package: &#39;dplyr&#39;</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from &#39;package:stats&#39;:
 
+    filter, lag</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from &#39;package:base&#39;:
+
+    intersect, setdiff, setequal, union</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">read_sav</span>(<span class="st">&quot;Case31_NS_cleaned.sav&quot;</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>h1_data <span class="ot">&lt;-</span> data <span class="sc">|&gt;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(q13r, q33) <span class="sc">|&gt;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">awareness =</span> <span class="fu">factor</span>(<span class="fu">as.numeric</span>(q13r),</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>                             <span class="at">levels =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>),</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>                             <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">&quot;Unaware&quot;</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>                                        <span class="st">&quot;Aware but have not used&quot;</span>,</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>                                        <span class="st">&quot;Aware and have used&quot;</span>)),</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>         <span class="at">q33 =</span> <span class="fu">as.numeric</span>(q33)) <span class="sc">|&gt;</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(awareness), <span class="sc">!</span><span class="fu">is.na</span>(q33))</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>h2_data <span class="ot">&lt;-</span> data <span class="sc">|&gt;</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(q8r, q30) <span class="sc">|&gt;</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">everything</span>(), as.numeric)) <span class="sc">|&gt;</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">if_all</span>(<span class="fu">everything</span>(), \(x) <span class="sc">!</span><span class="fu">is.na</span>(x)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>I excluded missing responses separately for each test. For H2, I only included members who answered both questions.</p>
+</section>
+<section id="h1-awareness-and-whether-services-meet-members-needs" class="level1">
+<h1>H1: Awareness and Whether Services Meet Members’ Needs</h1>
+<p>H1 states that members’ awareness of regular share accounts is related to their opinions on whether the credit union’s services meet their needs.</p>
+<ul>
+<li><strong>Independent variable:</strong> Awareness of regular share accounts (Q13r).</li>
+<li><strong>Dependent variable:</strong> Agreement that current financial services meet members’ needs (Q33).</li>
+<li><strong>Null hypothesis:</strong> Mean Q33 ratings are equal across the awareness groups.</li>
+<li><strong>Alternative hypothesis:</strong> At least one group has a different mean.</li>
+</ul>
+<p>A one-way ANOVA is appropriate because I am comparing a numerical rating across three independent groups.</p>
+<section id="descriptive-statistics" class="level2">
+<h2 class="anchored" data-anchor-id="descriptive-statistics">Descriptive Statistics</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>h1_summary <span class="ot">&lt;-</span> h1_data <span class="sc">|&gt;</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(awareness) <span class="sc">|&gt;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n =</span> <span class="fu">n</span>(),</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>            <span class="at">Mean =</span> <span class="fu">mean</span>(q33),</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>            <span class="at">SD =</span> <span class="fu">sd</span>(q33),</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>            <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span>)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>h1_summary <span class="sc">|&gt;</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">digits =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">awareness</th>
+<th style="text-align: right;">n</th>
+<th style="text-align: right;">Mean</th>
+<th style="text-align: right;">SD</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Unaware</td>
+<td style="text-align: right;">83</td>
+<td style="text-align: right;">3.627</td>
+<td style="text-align: right;">0.657</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Aware but have not used</td>
+<td style="text-align: right;">32</td>
+<td style="text-align: right;">3.719</td>
+<td style="text-align: right;">0.634</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Aware and have used</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">3.077</td>
+<td style="text-align: right;">0.760</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Higher Q33 scores indicate stronger agreement that the services meet members’ needs.</p>
+</section>
+<section id="one-way-anova" class="level2">
+<h2 class="anchored" data-anchor-id="one-way-anova">One-Way ANOVA</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>h1_anova <span class="ot">&lt;-</span> <span class="fu">aov</span>(q33 <span class="sc">~</span> awareness, <span class="at">data =</span> h1_data)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(h1_anova)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>             Df Sum Sq Mean Sq F value Pr(&gt;F)  
+awareness     2   4.06  2.0307   4.631 0.0115 *
+Residuals   125  54.81  0.4385                 
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+</div>
+</div>
+<p>The ANOVA gives <strong>F(2, 125) = 4.63, p = 0.011</strong>.</p>
+<p>I reject the null hypothesis. Mean ratings differ across the awareness groups, supporting H1. This shows an association, but it does not establish that awareness causes the difference.</p>
+</section>
+<section id="group-comparisons" class="level2">
+<h2 class="anchored" data-anchor-id="group-comparisons">Group Comparisons</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (h1_p <span class="sc">&lt;</span> .<span class="dv">05</span>) {</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">TukeyHSD</span>(h1_anova)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Tukey multiple comparisons of means
+    95% family-wise confidence level
+
+Fit: aov(formula = q33 ~ awareness, data = h1_data)
+
+$awareness
+                                                   diff        lwr         upr
+Aware but have not used-Unaware              0.09224398 -0.2345927  0.41908065
+Aware and have used-Unaware                 -0.54958295 -1.0180950 -0.08107087
+Aware and have used-Aware but have not used -0.64182692 -1.1584282 -0.12522563
+                                                p adj
+Aware but have not used-Unaware             0.7816413
+Aware and have used-Unaware                 0.0170339
+Aware and have used-Aware but have not used 0.0106252</code></pre>
+</div>
+</div>
+<p>I used Tukey’s test to check which groups differ. Comparisons with an adjusted p-value below .05 indicate a significant difference between those groups.</p>
+</section>
+</section>
+<section id="h2-opinions-about-loan-rates" class="level1">
+<h1>H2: Opinions about Loan Rates</h1>
+<p>H2 states that members do not differ in their ratings of the credit union’s borrowing rates (Q8r) and their agreement that its loan rates are lower than competitors’ rates (Q30).</p>
+<ul>
+<li><strong>Null hypothesis:</strong> The mean paired difference is zero.</li>
+<li><strong>Alternative hypothesis:</strong> The mean paired difference is not zero.</li>
+</ul>
+<p>A paired samples t-test is appropriate because the same members answered both questions.</p>
+<section id="descriptive-statistics-1" class="level2">
+<h2 class="anchored" data-anchor-id="descriptive-statistics-1">Descriptive Statistics</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(<span class="at">Item =</span> <span class="fu">c</span>(<span class="st">&quot;Q8r: Opinion of borrowing rates&quot;</span>,</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;Q30: Loan rates lower than competitors&quot;</span>),</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>           <span class="at">n =</span> <span class="fu">c</span>(<span class="fu">nrow</span>(h2_data), <span class="fu">nrow</span>(h2_data)),</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>           <span class="at">Mean =</span> <span class="fu">c</span>(<span class="fu">mean</span>(h2_data<span class="sc">$</span>q8r), <span class="fu">mean</span>(h2_data<span class="sc">$</span>q30)),</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>           <span class="at">SD =</span> <span class="fu">c</span>(<span class="fu">sd</span>(h2_data<span class="sc">$</span>q8r), <span class="fu">sd</span>(h2_data<span class="sc">$</span>q30))) <span class="sc">|&gt;</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">digits =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Item</th>
+<th style="text-align: right;">n</th>
+<th style="text-align: right;">Mean</th>
+<th style="text-align: right;">SD</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Q8r: Opinion of borrowing rates</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">3.140</td>
+<td style="text-align: right;">0.758</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Q30: Loan rates lower than competitors</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">3.056</td>
+<td style="text-align: right;">0.920</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Q8r runs from lower to higher borrowing rates. Q30 runs from disagreement to agreement that rates are lower than competitors’ rates. These have different meanings, so the comparison is between their numerical ratings.</p>
+</section>
+<section id="paired-samples-t-test" class="level2">
+<h2 class="anchored" data-anchor-id="paired-samples-t-test">Paired Samples t-Test</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>h2_test <span class="ot">&lt;-</span> <span class="fu">t.test</span>(h2_data<span class="sc">$</span>q8r,</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>                   h2_data<span class="sc">$</span>q30,</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>                   <span class="at">paired =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>                   <span class="at">alternative =</span> <span class="st">&quot;two.sided&quot;</span>)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>h2_test</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    Paired t-test
+
+data:  h2_data$q8r and h2_data$q30
+t = 0.60088, df = 106, p-value = 0.5492
+alternative hypothesis: true mean difference is not equal to 0
+95 percent confidence interval:
+ -0.1934139  0.3616382
+sample estimates:
+mean difference 
+     0.08411215 </code></pre>
+</div>
+</div>
+<p>The test gives <strong>t(106) = 0.60, p = 0.549</strong>. The mean difference (Q8r minus Q30) is <strong>0.08</strong>, with a 95% confidence interval from <strong>-0.19 to 0.36</strong>.</p>
+<p>I fail to reject the null hypothesis. There is not enough evidence of a difference between the mean ratings. This is consistent with H2, but it does not prove that the ratings are equal.</p>
+</section>
+</section>
+<section id="appendix" class="level1">
+<h1>Appendix</h1>
+<ul>
+<li><a href="https://github.com/itsnik1/IC-Case-31">GitHub Repo</a></li>
+<li><a href="https://itsnik1.github.io/IC-Case-31/Summary%20of%20Data%20Analysis%20for%20H1-H2.html">GH Pages Link</a></li>
+</ul>
+</section>
 
 </main>
 <!-- /main column -->
