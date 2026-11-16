@@ -202,6 +202,4 @@ operations_composite <-
 
 - [GitHub Repo](https://github.com/itsnik1/IC-Case-31)
 
-- Published GH Pages
-
-- 
+- [Published GH Pages](https://itsnik1.github.io/IC-Case-31/Reliability%20and%20Factor%20Analysis.html)
