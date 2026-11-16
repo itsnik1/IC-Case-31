@@ -1,0 +1,207 @@
+---
+title: "Case 31: Reliability and Factor Analysis"
+author: "Nik Sahami"
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+editor: visual
+---
+
+# Introduction
+
+I checked the factor structure and reliability of R3 (Q3–Q6) and R6 (Q31–Q34) to see whether the items can be combined into composite scales.
+
+# Data Preparation
+
+```{r}
+library(haven)
+library(dplyr)
+library(psych)
+
+data <- read_sav("Case31_NS_cleaned.sav")
+
+employee_items <- data |>
+  select(q3:q6) |>
+  mutate(across(everything(), as.numeric)) |>
+  filter(if_all(everything(), \(x) !is.na(x)))
+
+operations_items <- data |>
+  select(q31:q34) |>
+  mutate(across(everything(), as.numeric)) |>
+  filter(if_all(everything(), \(x) !is.na(x)))
+
+combined_items <- data |>
+  select(q3:q6, q31:q34) |>
+  mutate(across(everything(), as.numeric)) |>
+  filter(if_all(everything(), \(x) !is.na(x)))
+```
+
+I used complete responses for each analysis. R6 only includes Q31–Q34, as specified in the instructions.
+
+```{r}
+#| include: false
+
+fmt <- function(x) sprintf("%.2f", x)
+
+factor_table <- function(model) {data.frame(Item = rownames(model$loadings),
+                                            as.matrix(model$loadings),
+                                            Communality = model$communality,
+                                            row.names = NULL)}
+```
+
+# R3: Employee Proficiency
+
+## Factor Analysis
+
+```{r}
+set.seed(2026)
+
+employee_parallel <- fa.parallel(employee_items,
+                                 fa = "fa",
+                                 fm = "minres",
+                                 n.iter = 100,
+                                 plot = FALSE)
+
+employee_fa <- fa(employee_items,
+                  nfactors = 1,
+                  rotate = "none",
+                  fm = "minres")
+
+factor_table(employee_fa) |>
+  knitr::kable(digits = 3)
+```
+
+Parallel analysis suggests **`r employee_parallel$nfact` factor(s)**. The absolute loadings range from **`r fmt(min(abs(employee_fa$loadings)))` to `r fmt(max(abs(employee_fa$loadings)))`**. Communalities show how much of each item's variance the factor explains.
+
+`r if (employee_parallel$nfact == 1 && all(abs(employee_fa$loadings) >= .40) && all(employee_fa$communality >= .30)) "The items fit one factor reasonably well, supporting convergent validity." else "The results do not clearly support treating all four items as one factor, so convergent validity is questionable."`
+
+## Reliability
+
+```{r}
+employee_alpha <- psych::alpha(employee_items,
+                               check.keys = FALSE)
+
+employee_alpha$total |>
+  select(raw_alpha, std.alpha, average_r) |>
+  knitr::kable(digits = 3)
+```
+
+Cronbach's alpha is **`r fmt(employee_alpha$total$raw_alpha)`**. `r if (employee_alpha$total$raw_alpha >= .70) "This meets the .70 guideline for acceptable internal consistency." else "This falls below the .70 guideline for acceptable internal consistency."`
+
+# R6: Operational Effectiveness
+
+## Factor Analysis
+
+```{r}
+set.seed(2026)
+
+operations_parallel <- fa.parallel(operations_items,
+                                   fa = "fa",
+                                   fm = "minres",
+                                   n.iter = 100,
+                                   plot = FALSE)
+
+operations_fa <- fa(operations_items,
+                    nfactors = 1,
+                    rotate = "none",
+                    fm = "minres")
+
+factor_table(operations_fa) |>
+  knitr::kable(digits = 3)
+```
+
+Parallel analysis suggests **`r operations_parallel$nfact` factor(s)**. The absolute loadings range from **`r fmt(min(abs(operations_fa$loadings)))` to `r fmt(max(abs(operations_fa$loadings)))`**.
+
+`r if (operations_parallel$nfact == 1 && all(abs(operations_fa$loadings) >= .40) && all(operations_fa$communality >= .30)) "The items fit one factor reasonably well, supporting convergent validity." else "The results do not clearly support one operational-effectiveness factor. Weaker loadings or communalities indicate that some items do not fit the scale well."`
+
+## Reliability
+
+```{r}
+operations_alpha <- psych::alpha(operations_items,
+                                 check.keys = FALSE)
+
+operations_alpha$total |>
+  select(raw_alpha, std.alpha, average_r) |>
+  knitr::kable(digits = 3)
+```
+
+Cronbach's alpha is **`r fmt(operations_alpha$total$raw_alpha)`**. `r if (operations_alpha$total$raw_alpha >= .70) "This meets the .70 guideline for acceptable internal consistency." else "This falls below .70, so the items do not have acceptable internal consistency."`
+
+# Discriminant Validity
+
+I analyzed all eight items together to check whether the two scales separate as expected. I used oblimin rotation because the factors could be related.
+
+```{r}
+set.seed(2026)
+
+combined_parallel <- fa.parallel(combined_items,
+                                 fa = "fa",
+                                 fm = "minres",
+                                 n.iter = 100,
+                                 plot = FALSE)
+
+combined_fa <- fa(combined_items,
+                  nfactors = 2,
+                  rotate = "oblimin",
+                  fm = "minres")
+
+factor_table(combined_fa) |>
+  knitr::kable(digits = 3)
+
+combined_fa$Phi |>
+  knitr::kable(digits = 3, caption = "Factor correlation")
+```
+
+```{r}
+#| include: false
+
+loadings <- abs(as.matrix(combined_fa$loadings))
+primary_factor <- max.col(loadings, ties.method = "first")
+
+distinct_scales <-
+  combined_parallel$nfact == 2 &&
+  length(unique(primary_factor[1:4])) == 1 &&
+  length(unique(primary_factor[5:8])) == 1 &&
+  primary_factor[1] != primary_factor[5] &&
+  all(apply(loadings, 1, max) >= .40) &&
+  all(apply(loadings, 1, min) < .30) &&
+  abs(combined_fa$Phi[1, 2]) < .85
+```
+
+Parallel analysis suggests **`r combined_parallel$nfact` factor(s)**. `r if (distinct_scales) "Q3–Q6 and Q31–Q34 separate into their expected factors, with limited cross-loadings. This supports discriminant validity." else "The results do not clearly separate the items into the two expected scales. Discriminant validity is not well supported."` Extracting two factors by itself does not confirm that the scales are distinct.
+
+# Decision about Composite Scales
+
+```{r}
+#| include: false
+
+employee_composite <-
+  employee_parallel$nfact == 1 &&
+  all(abs(employee_fa$loadings) >= .40) &&
+  all(employee_fa$communality >= .30) &&
+  employee_alpha$total$raw_alpha >= .70
+
+operations_composite <-
+  operations_parallel$nfact == 1 &&
+  all(abs(operations_fa$loadings) >= .40) &&
+  all(operations_fa$communality >= .30) &&
+  operations_alpha$total$raw_alpha >= .70
+```
+
+**R3:** `r if (employee_composite) "I would average Q3–Q6 into an employee-proficiency composite based on the factor and reliability results." else "I would keep Q3–Q6 separate because the factor and reliability results do not consistently support one composite."`
+
+**R6:** `r if (operations_composite) "I would average Q31–Q34 into an operational-effectiveness composite based on the factor and reliability results." else "I would keep Q31–Q34 separate because the factor and reliability results do not consistently support one composite."`
+
+`r if (!distinct_scales) "The lack of clear discriminant validity also means I would be cautious about interpreting these as separate constructs." else "The combined analysis supports treating the two constructs separately."`
+
+# Appendix
+
+- [GitHub Repo](https://github.com/itsnik1/IC-Case-31)
+
+- Published GH Pages
+
+- 
