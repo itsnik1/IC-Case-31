@@ -1,0 +1,142 @@
+---
+title: "Case 31: Summary of Data Analysis for H5a–H5d"
+author: "Nik Sahami"
+date: today
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+editor: visual
+---
+
+# Introduction
+
+I tested whether confidentiality, application processing, services meeting members' needs, and application simplicity predict members' overall ratings of the credit union. Multiple regression lets me examine each predictor while holding the others constant.
+
+# Data Preparation
+
+```{r}
+library(haven)
+library(dplyr)
+library(tidyr)
+library(car)
+library(lmtest)
+library(sandwich)
+
+data <- read_sav("Case31_NS_cleaned.sav") |>
+  select(q37r, q31:q34) |>
+  mutate(across(everything(), as.numeric)) |>
+  drop_na()
+```
+
+Q37r is the overall rating, with higher scores indicating better ratings. Q31–Q34 are the four predictors. I only included members with complete responses on all five items.
+
+# Descriptive Statistics
+
+```{r}
+#| label: tbl-descriptive
+#| tbl-cap: "Descriptive statistics for the regression variables"
+
+data |>
+  pivot_longer(everything(),
+               names_to = "Item",
+               values_to = "Rating") |>
+  group_by(Item) |>
+  summarise(n = n(),
+            Mean = mean(Rating),
+            SD = sd(Rating)) |>
+  knitr::kable(digits = 3)
+```
+
+The analysis includes **`r nrow(data)` members** (@tbl-descriptive). All five variables use 1–5 scales.
+
+# Multiple Regression
+
+```{r}
+model <- lm(q37r ~ q31 + q32 + q33 + q34,
+             data = data)
+
+summary(model)
+```
+
+The model explains **`r round(summary(model)$r.squared * 100, 1)`%** of the variation in overall ratings. Adjusted R² is **`r round(summary(model)$adj.r.squared, 3)`**.
+
+# Regression Assumptions
+
+```{r}
+#| fig-width: 9
+#| fig-height: 7
+
+par(mfrow = c(2, 2))
+plot(model)
+par(mfrow = c(1, 1))
+```
+
+The plots check for curved patterns, uneven residual spread, departures from normality, and influential observations. Independence also depends on each member contributing only one response.
+
+```{r}
+vif(model)
+
+bp_test <- bptest(model)
+
+bp_test
+```
+
+The largest VIF is **`r round(max(vif(model)), 2)`**. `r if (max(vif(model)) < 5) "The VIF values do not suggest a major multicollinearity problem." else "The VIF values suggest possible multicollinearity, so the individual coefficients need caution."`
+
+`r if (bp_test$p.value < .05) "The Breusch-Pagan test suggests unequal residual variance, so I used HC3 robust standard errors for the hypothesis tests." else "The Breusch-Pagan test did not find clear evidence of unequal residual variance, so I used the usual standard errors."`
+
+# Results for H5a–H5d
+
+```{r}
+if (bp_test$p.value < .05) {
+  coefficients <- coeftest(model,
+                            vcov. = vcovHC(model, type = "HC3"))
+} else {
+  coefficients <- coef(summary(model))
+}
+
+results <- data.frame(
+  Hypothesis = c("H5a", "H5b", "H5c", "H5d"),
+  Predictor = c("Confidentiality",
+                "Application processing",
+                "Services meet members' needs",
+                "Application simplicity"),
+  b = coefficients[2:5, 1],
+  SE = coefficients[2:5, 2],
+  t = coefficients[2:5, 3],
+  p = coefficients[2:5, 4],
+  row.names = NULL
+) |>
+  mutate(Result = case_when(
+    p < .05 & b > 0 ~ "Positive relationship; supported",
+    p < .05 & b < 0 ~ "Negative relationship; not supported",
+    TRUE ~ "Not significant; not supported"
+  ))
+```
+
+```{r}
+#| label: tbl-h5
+#| tbl-cap: "Results for H5a–H5d"
+
+results |>
+  mutate(p = format.pval(p, digits = 3, eps = .001)) |>
+  knitr::kable(digits = 3)
+```
+
+Each coefficient shows the expected change in the overall rating for a one-point increase in that predictor, holding the others constant (@tbl-h5).
+
+- **H5a:** `r if (results$p[1] < .05 && results$b[1] > 0) "Members who rated confidentiality higher also gave higher overall ratings, supporting H5a." else "Confidentiality was not a significant positive predictor, so H5a was not supported."`
+- **H5b:** `r if (results$p[2] < .05 && results$b[2] > 0) "Members who rated application processing higher also gave higher overall ratings, supporting H5b." else "Application processing was not a significant positive predictor, so H5b was not supported."`
+- **H5c:** `r if (results$p[3] < .05 && results$b[3] > 0) "Members who felt services met their needs gave higher overall ratings, supporting H5c." else "Services meeting members' needs was not a significant positive predictor, so H5c was not supported."`
+- **H5d:** `r if (results$p[4] < .05 && results$b[4] > 0) "Members who rated the application process as simpler gave higher overall ratings, supporting H5d." else "Application simplicity was not a significant positive predictor, so H5d was not supported."`
+
+These results show relationships between members' ratings. They do not establish that changing one area would cause the overall rating to improve.
+
+# Appendix
+
+- [GitHub Repo](https://github.com/itsnik1/IC-Case-31)
+- [Published GH Pages](https://itsnik1.github.io/IC-Case-31/Summary-of-Data-Analysis-for-H5a–H5d.html)
