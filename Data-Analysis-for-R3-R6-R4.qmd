@@ -1,0 +1,299 @@
+---
+title: "Case 31: Data Analysis for R3, R6, and R4"
+author: "Nik Sahami"
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+editor: visual
+---
+
+# Introduction
+
+I examined members' opinions of employees and credit union operations, then compared members near the headquarters with those who live elsewhere.
+
+# Data Preparation
+
+```{r}
+library(haven)
+library(dplyr)
+library(tidyr)
+
+data <- read_sav("Case31_NS_cleaned.sav") |>
+  mutate(across(everything(), as.numeric),
+         employee = rowMeans(pick(q3:q6)),
+         q9r = 6 - q9,
+         q11 = if_else(q11 %in% c(1, 2), q11, NA_real_),
+         q12 = if_else(q12 %in% c(1, 2), q12, NA_real_),
+         residence = factor(q38,
+                              levels = c(1, 2),
+                              labels = c("Headquarters", "Elsewhere")))
+
+operations <- c("q9r", "q10r", "q31", "q32", "q33", "q34")
+awareness <- paste0("q", 13:26, "r")
+```
+
+I averaged Q3–Q6 based on the previous analysis and kept Q31–Q34 separate. Missing responses were excluded from each test.
+
+# R3: Employee Proficiency
+
+## Descriptive Statistics and One-Sample t-Test
+
+```{r}
+#| label: tbl-r3
+#| tbl-cap: "Employee proficiency ratings"
+
+data |>
+  select(q3:q6, employee) |>
+  pivot_longer(everything(),
+               names_to = "Item",
+               values_to = "Rating") |>
+  group_by(Item) |>
+  summarise(n = sum(!is.na(Rating)),
+            Mean = mean(Rating, na.rm = TRUE),
+            SD = sd(Rating, na.rm = TRUE)) |>
+  knitr::kable(digits = 3)
+
+r3_test <- t.test(data$employee, mu = 3)
+
+r3_test
+```
+
+The employee-proficiency average was **`r round(mean(data$employee, na.rm = TRUE), 2)` out of 5** (@tbl-r3). `r if (r3_test$p.value < .05 && mean(data$employee, na.rm = TRUE) > 3) "Members rated employees significantly above neutral, showing a positive overall opinion." else if (r3_test$p.value < .05) "Members rated employees significantly below neutral, showing a negative overall opinion." else "The average was not significantly different from neutral."`
+
+# R6: Operational Effectiveness
+
+## Descriptive Statistics and One-Sample t-Tests
+
+```{r}
+#| label: tbl-r6
+#| tbl-cap: "Operational ratings and tests against scale midpoints"
+
+r6_results <- list()
+
+for (variable in operations) {
+  x <- na.omit(data[[variable]])
+  midpoint <- if (variable == "q10r") 2.5 else 3
+  test <- t.test(x, mu = midpoint)
+
+  r6_results[[variable]] <- data.frame(Item = variable,
+                                       n = length(x),
+                                       Mean = mean(x),
+                                       SD = sd(x),
+                                       Midpoint = midpoint,
+                                       t = unname(test$statistic),
+                                       p = test$p.value)
+}
+
+r6_results <- bind_rows(r6_results)
+
+r6_results |>
+  mutate(p = format.pval(p, digits = 3, eps = .001)) |>
+  knitr::kable(digits = 3)
+```
+
+Q9r measures statement frequency, Q10r measures accuracy, and Q31–Q34 measure confidentiality, application processing, whether services meet members' needs, and application simplicity.
+
+```{r}
+#| include: false
+
+operation_names <- c(q31 = "confidentiality",
+                     q32 = "application processing",
+                     q33 = "services meeting members' needs",
+                     q34 = "application simplicity")
+
+r6_items <- r6_results |>
+  filter(Item %in% names(operation_names))
+```
+
+Members rated **`r unname(operation_names[r6_items$Item[which.max(r6_items$Mean)]])`** highest and **`r unname(operation_names[r6_items$Item[which.min(r6_items$Mean)]])`** lowest among Q31–Q34 (@tbl-r6). Significant differences from the midpoint indicate positive ratings when the mean is above 3 and negative ratings when it is below 3.
+
+For statement frequency, **`r round(mean(data$q9r == 3, na.rm = TRUE) * 100, 1)`%** selected “about right.” Higher frequency scores do not necessarily mean better service.
+
+## Frequencies and Chi-Square Goodness-of-Fit Tests
+
+```{r}
+#| label: tbl-r6-binary
+#| tbl-cap: "Statement clarity and account confidentiality"
+
+r6_binary <- list()
+
+for (variable in c("q11", "q12")) {
+  counts <- table(factor(data[[variable]], levels = c(1, 2)))
+  test <- chisq.test(counts, p = c(.5, .5))
+
+  r6_binary[[variable]] <- data.frame(Item = variable,
+                                      Yes = unname(counts[1]),
+                                      No = unname(counts[2]),
+                                      Yes_percent = counts[1] / sum(counts) * 100,
+                                      p = test$p.value,
+                                      row.names = NULL)
+}
+
+r6_binary <- bind_rows(r6_binary)
+
+r6_binary |>
+  mutate(p = format.pval(p, digits = 3, eps = .001)) |>
+  knitr::kable(digits = 3)
+```
+
+**`r round(r6_binary$Yes_percent[1], 1)`%** said statements are easy to understand, and **`r round(r6_binary$Yes_percent[2], 1)`%** said account information is kept confidential (@tbl-r6-binary). The tests compare the responses with a 50/50 split.
+
+# R4a: Employee Proficiency by Residence
+
+## Descriptive Statistics and Independent Samples t-Test
+
+```{r}
+#| label: tbl-r4a
+#| tbl-cap: "Employee proficiency by residence"
+
+data |>
+  filter(!is.na(residence), !is.na(employee)) |>
+  group_by(residence) |>
+  summarise(n = n(),
+            Mean = mean(employee),
+            SD = sd(employee)) |>
+  knitr::kable(digits = 3)
+
+r4a_test <- t.test(employee ~ residence, data = data)
+
+r4a_test
+```
+
+`r if (r4a_test$p.value < .05) "Employee ratings differed significantly between members near headquarters and members elsewhere." else "I did not find a significant difference in employee ratings by residence."` The group averages are shown in @tbl-r4a.
+
+# R4b: Service Awareness by Residence
+
+## Cross-Tabulations and Tests of Association
+
+```{r}
+#| label: tbl-r4b
+#| tbl-cap: "Service awareness by residence"
+
+categorical <- data |>
+  select(residence, all_of(awareness), q11, q12) |>
+  pivot_longer(-residence,
+               names_to = "Item",
+               values_to = "Response") |>
+  filter(!is.na(residence), !is.na(Response))
+
+categorical_summary <- categorical |>
+  group_by(Item, residence) |>
+  summarise(n = n(),
+            Response1 = mean(Response == 1) * 100,
+            Response2 = mean(Response == 2) * 100,
+            Response3 = mean(Response == 3) * 100,
+            .groups = "drop") |>
+  pivot_wider(names_from = residence,
+              values_from = c(n, Response1, Response2, Response3))
+
+categorical_tests <- list()
+
+for (variable in c(awareness, "q11", "q12")) {
+  counts <- table(data$residence, data[[variable]])
+
+  if (nrow(counts) < 2 || ncol(counts) < 2) next
+
+  expected <- outer(rowSums(counts), colSums(counts)) / sum(counts)
+
+  if (any(expected < 5)) {
+    test <- fisher.test(counts)
+    test_name <- "Fisher's exact"
+  } else {
+    test <- chisq.test(counts, correct = FALSE)
+    test_name <- "Chi-square"
+  }
+
+  categorical_tests[[variable]] <- data.frame(Item = variable,
+                                               Test = test_name,
+                                               p = test$p.value)
+}
+
+categorical_tests <- bind_rows(categorical_tests)
+
+r4b_results <- categorical_summary |>
+  filter(Item %in% awareness) |>
+  left_join(categorical_tests, by = "Item")
+
+r4b_results |>
+  mutate(p = format.pval(p, digits = 3, eps = .001)) |>
+  knitr::kable(digits = 1)
+```
+
+Response 1 means unaware, 2 means aware but have not used, and 3 means aware and have used. The response columns show percentages within each residence group (@tbl-r4b). Fisher's exact test was used when expected counts were below 5.
+
+```{r}
+#| include: false
+
+r4b_significant <- r4b_results |>
+  filter(!is.na(p), p < .05)
+```
+
+`r if (nrow(r4b_significant) > 0) paste0("Awareness and use differed significantly by residence for ", paste(toupper(r4b_significant$Item), collapse = ", "), ".") else "I did not find significant differences in service awareness by residence."`
+
+# R4c: Operational Effectiveness by Residence
+
+## Descriptive Statistics and Independent Samples t-Tests
+
+```{r}
+#| label: tbl-r4c
+#| tbl-cap: "Operational ratings by residence"
+
+r4c_results <- list()
+
+for (variable in operations) {
+  comparison <- data |>
+    transmute(residence,
+              Rating = .data[[variable]]) |>
+    filter(!is.na(residence), !is.na(Rating))
+
+  test <- t.test(Rating ~ residence, data = comparison)
+
+  r4c_results[[variable]] <- data.frame(Item = variable,
+                                        Headquarters = unname(test$estimate[1]),
+                                        Elsewhere = unname(test$estimate[2]),
+                                        t = unname(test$statistic),
+                                        p = test$p.value)
+}
+
+r4c_results <- bind_rows(r4c_results)
+
+r4c_results |>
+  mutate(p = format.pval(p, digits = 3, eps = .001)) |>
+  knitr::kable(digits = 3)
+```
+
+```{r}
+#| include: false
+
+r4c_significant <- r4c_results |>
+  filter(p < .05)
+```
+
+The Headquarters and Elsewhere columns show the group means (@tbl-r4c). `r if (nrow(r4c_significant) > 0) paste0("Ratings differed significantly by residence for ", paste(toupper(r4c_significant$Item), collapse = ", "), ".") else "I did not find significant differences in these operational ratings by residence."` For Q9r, a higher mean indicates more frequent statements.
+
+## Cross-Tabulations and Tests of Association
+
+```{r}
+#| label: tbl-r4c-binary
+#| tbl-cap: "Statement clarity and confidentiality by residence"
+
+r4c_binary <- categorical_summary |>
+  filter(Item %in% c("q11", "q12")) |>
+  select(-starts_with("Response3")) |>
+  left_join(categorical_tests, by = "Item")
+
+r4c_binary |>
+  mutate(p = format.pval(p, digits = 3, eps = .001)) |>
+  knitr::kable(digits = 1)
+```
+
+Response 1 means yes and 2 means no. `r if (r4c_binary$p[match("q11", r4c_binary$Item)] < .05) "Opinions about statement clarity differed significantly by residence." else "I did not find a significant difference in opinions about statement clarity."` `r if (r4c_binary$p[match("q12", r4c_binary$Item)] < .05) "Opinions about account confidentiality differed significantly by residence." else "I did not find a significant difference in opinions about account confidentiality."` The percentages are shown in @tbl-r4c-binary.
+
+# Appendix
+
+- [GitHub Repo](https://github.com/itsnik1/IC-Case-31)
+- [Published GH Pages](https://itsnik1.github.io/IC-Case-31/Data-Analysis-for-R3-R6-R4.html)
