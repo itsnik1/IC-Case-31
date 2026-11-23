@@ -1,0 +1,251 @@
+---
+title: "Case 31: Measurement Model Assessment"
+author: "Nik Sahami"
+date: today
+format:
+  html:
+    toc: true
+    toc-title: "Contents"
+    toc-depth: 3
+    number-sections: true
+    smooth-scroll: true
+    embed-resources: true
+execute:
+  message: false
+---
+
+# Purpose
+
+In Case 31, members rated the employees and several parts of their experience with Employees Federal Credit Union. I used confirmatory factor analysis (CFA) to check whether the survey items support the two constructs in the case. The part I wanted to check most was operational effectiveness. Getting statements often enough and finding a loan application easy to complete are pretty different experiences to put under one score.
+
+# What the items measure
+
+A latent factor is something we estimate from several observed responses. In CFA, we specify which items belong to each factor before running the model. The standardized loading tells us how closely each item relates to its assigned factor.
+
+| Factor | Items | What members rated |
+|------------------------|------------------------|------------------------|
+| Employee proficiencies | q3–q6 | Employee courtesy, helpfulness, professionalism, and availability |
+| Operational effectiveness | q9r, q10r, q11, q12, q31–q34 | Statement frequency and accuracy, whether statements are understandable, account confidentiality, financial information confidentiality, processing speed, whether services meet members’ needs, and ease of completing loan applications |
+
+I expected the factors to be related since members deal with employees when using the credit union’s services. They still cover different things. A member could rate the staff highly and still have trouble with a statement or loan application.
+
+The case also uses individual survey responses directly. For example, q13r measures account awareness, q27 identifies current borrowers, and q38 identifies residence. Other analyses compare the two loan-rate opinions (q8r and q30) or use q37r as the overall efficiency rating. The role depends on the question. In H5, q31–q34 are predictors of q37r. Here, those same four items are indicators of operational effectiveness. A single item on its own gives us no separate estimate of its measurement error without an additional assumption.
+
+# Data preparation
+
+```{r}
+library(haven)
+library(dplyr)
+library(tidyr)
+library(lavaan)
+library(knitr)
+
+files <- c("Case31_NS_cleaned.sav", "Case31_NS_cleaned(1).sav")
+data_file <- files[file.exists(files)][1]
+if (is.na(data_file)) stop("Place the cleaned Case 31 SAV beside the QMD.")
+
+dat <- read_sav(data_file)
+dim(dat)
+names(dat)
+
+raw_items <- c("q3", "q4", "q5", "q6", "q9", "q10", "q10r",
+               "q11", "q12", "q31", "q32", "q33", "q34")
+glimpse(dat[raw_items])
+```
+
+The cleaned file has `r nrow(dat)` members. SPSS stores the responses as labelled numbers. I checked the labels before converting anything to numeric because a higher number has a different meaning depending on the item.
+
+## Coding direction
+
+```{r}
+coding <- function(x) {
+  labels <- sort(attr(x, "labels"))
+  paste(paste0(unname(labels), " = ", names(labels)), collapse = ", ")
+}
+
+tibble(
+  Item = c("q3–q6 and q31–q34", "q9", "q10", "q10r", "q11 and q12"),
+  Coding = vapply(dat[c("q3", "q9", "q10", "q10r", "q11")],
+                  coding, character(1))
+) |>
+  kable()
+```
+
+The case table defines q9r as 1 = never through 5 = too often. The file has the original q9 in the opposite direction, so the formula is `6 - q9`. Statement accuracy already has a reversed version, q10r, where 4 = excellent. I used that version and verified it against q10.
+
+```{r}
+if ("q9r" %in% names(dat)) {
+  stopifnot(isTRUE(all.equal(as.numeric(dat$q9r),
+                             6 - as.numeric(dat$q9))))
+} else {
+  dat$q9r <- 6 - as.numeric(dat$q9)
+}
+
+stopifnot(isTRUE(all.equal(as.numeric(dat$q10r),
+                           5 - as.numeric(dat$q10))))
+
+dat |>
+  count(Response = as_factor(q9), Original = as.numeric(q9),
+        Reversed = q9r, name = "Members") |>
+  kable()
+```
+
+Only two q9 answers occurred. The 99 members who selected “about right” stayed at 3. The 29 who selected “not often enough” moved from 4 to 2. A higher score works as a more favorable answer for these members. Across the full scale, “too often” would score higher than “about right,” which is a limitation of using frequency as an effectiveness item.
+
+For the two yes/no items, I scored yes as 1 and no as 0 so a positive loading has the same interpretation as the agreement items. “No answer” stays missing. I gave these versions new names to keep the original coding visible.
+
+```{r}
+yes_no <- function(x) {
+  case_when(x == 1 ~ 1, x == 2 ~ 0, .default = NA_real_)
+}
+
+items <- dat |>
+  transmute(across(c(q3:q6, q9r, q10r), as.numeric),
+            q11_yes = yes_no(q11), q12_yes = yes_no(q12),
+            across(q31:q34, as.numeric))
+```
+
+## Missing values and distributions
+
+```{r}
+long <- items |>
+  pivot_longer(everything(), names_to = "Item", values_to = "Score") |>
+  mutate(Item = factor(Item, levels = names(items)))
+
+long |>
+  group_by(Item) |>
+  summarise(N = sum(!is.na(Score)), Missing = sum(is.na(Score)),
+            Mean = mean(Score, na.rm = TRUE), SD = sd(Score, na.rm = TRUE),
+            Min = min(Score, na.rm = TRUE), Max = max(Score, na.rm = TRUE),
+            .groups = "drop") |>
+  kable(digits = 2)
+
+long |>
+  filter(!is.na(Score)) |>
+  count(Item, Score) |>
+  pivot_wider(names_from = Score, values_from = n, values_fill = 0,
+              names_prefix = "Score ", names_sort = TRUE) |>
+  kable(caption = "Number of members at each score")
+```
+
+The main missing-data issue was q12, with 22 missing responses. Another issue was q11. Only three members said their statements were difficult to understand, so that item has very little variation.
+
+# Two-factor CFA
+
+```{r}
+measurement_model <- '
+  Employee   =~ q3 + q4 + q5 + q6
+  Operations =~ q9r + q10r + q11_yes + q12_yes + q31 + q32 + q33 + q34
+'
+
+fit <- cfa(measurement_model, data = items, std.lv = TRUE,
+           estimator = "MLR", missing = "fiml")
+
+lavInspect(fit, "converged")
+```
+
+I fixed each factor variance at 1 to set its scale. Each item loads on one factor, the two factors can correlate, and the item errors are uncorrelated. With 12 items there are 78 distinct variances and covariances. The model estimates 12 loadings, 12 error variances, and one factor correlation, leaving 53 degrees of freedom. The item means and estimated intercepts cancel out in that count.
+
+I used robust maximum likelihood (MLR) and full-information maximum likelihood for missing data. This uses each member’s available responses and assumes missingness can be explained by observed information. MLR treats the scores as numeric, which is an approximation for the yes/no items. The model converged, but `lavaan` warned that the estimated parameter covariance matrix was nearly singular. Its smallest eigenvalue was essentially zero. I would interpret the standard errors and significance tests cautiously, especially given how few members answered no on q11.
+
+# CFA results
+
+## Model fit
+
+```{r}
+measures <- c("chisq.scaled", "df.scaled", "pvalue.scaled",
+              "cfi.robust", "tli.robust", "rmsea.robust",
+              "rmsea.ci.lower.robust", "rmsea.ci.upper.robust", "srmr")
+
+fmt_p <- function(p) format.pval(p, digits = 3, eps = .001)
+values <- as.numeric(fitMeasures(fit, measures))
+
+tibble(
+  Measure = c("Scaled chi-square", "df", "p", "Robust CFI", "Robust TLI",
+              "Robust RMSEA", "RMSEA 90% CI, lower", "RMSEA 90% CI, upper",
+              "SRMR"),
+  Value = replace(formatC(values, digits = 3, format = "f"),
+                  3, fmt_p(values[3]))
+) |>
+  kable()
+```
+
+The scaled chi-square was 129.33 with 53 df (*p* \< .001). CFI (.821) and TLI (.777) both fell below .90. RMSEA was .102 and SRMR was .086. Taken together, the two-factor model leaves a fair amount of the relationships among the items unexplained.
+
+## Standardized loadings
+
+```{r}
+standard <- standardizedSolution(fit)
+
+loadings <- standard |>
+  filter(op == "=~") |>
+  transmute(Factor = lhs, Item = rhs, Loading = est.std,
+            Lower = ci.lower, Upper = ci.upper, p = pvalue)
+
+loadings |>
+  mutate(p = fmt_p(p)) |>
+  kable(digits = 3, caption = "Standardized loadings with 95% intervals")
+```
+
+All four employee items had loadings above .70 and were significant at *p* \< .001. Helpfulness was the strongest (.910). Even the lowest, courtesy (.739), had a fairly strong relationship with the factor.
+
+Processing speed (q32, .631) was the only operational item above the assignment’s .50 guideline. Meeting members’ needs (q33) came closest after that at .470. Statement accuracy and financial information confidentiality had significant loadings, but both were below .40. Statement frequency, statement clarity, account confidentiality, and loan application ease were all nonsignificant at .05. Account confidentiality had a loading near zero even after scoring yes in the favorable direction.
+
+## Reliability and convergent validity
+
+```{r}
+quality <- loadings |>
+  group_by(Factor) |>
+  summarise(
+    Alpha = {
+      R <- cor(items[Item], use = "pairwise.complete.obs")
+      r_bar <- mean(R[lower.tri(R)])
+      n() * r_bar / (1 + (n() - 1) * r_bar)
+    },
+    CR = sum(Loading)^2 / (sum(Loading)^2 + sum(1 - Loading^2)),
+    AVE = mean(Loading^2),
+    .groups = "drop"
+  )
+
+quality |> kable(digits = 3)
+```
+
+I used standardized Cronbach’s alpha because the items have different response scales. Alpha uses the available pairs of responses. Composite reliability (CR) and average variance extracted (AVE) use the standardized CFA loadings. AVE is the average share of an item’s variance explained by its factor.
+
+The employee factor had a CR of `r round(quality$CR[quality$Factor == "Employee"], 2)` and an AVE of `r round(quality$AVE[quality$Factor == "Employee"], 2)`. The four loadings tell a consistent story here. Members who rated employees favorably on one part of their job tended to rate them favorably on the others.
+
+For operations, CR was `r round(quality$CR[quality$Factor == "Operations"], 2)` and AVE was `r round(quality$AVE[quality$Factor == "Operations"], 2)`. That puts both below the usual .70 CR and .50 AVE guidelines. The factor explains little of the variation in most of these responses. In particular, knowing whether members understand their statements tells us little about how they rate loan processing.
+
+## Discriminant validity
+
+```{r}
+factor_cor <- standard |>
+  filter(op == "~~", lhs == "Employee", rhs == "Operations")
+
+factor_cor |>
+  transmute(Correlation = est.std, Lower = ci.lower, Upper = ci.upper) |>
+  kable(digits = 3, caption = "Factor correlation and 95% interval")
+
+quality |>
+  transmute(Factor, AVE, Shared_variance = factor_cor$est.std^2) |>
+  kable(digits = 3)
+```
+
+The factor correlation was .662, with a 95% interval from .393 to .931. Members who gave better employee ratings also tended to give better operational ratings. The interval stays below 1, although the upper end is close. The factors shared about 44% of their variance. Employee AVE was higher than that, while operations AVE was lower. That gives mixed evidence for treating the two scores as distinct, especially with operations already showing weak convergence.
+
+# Conclusion
+
+I would keep the four employee items together. Each one had a strong loading, and they all ask about something members can judge from dealing with staff. I would hold off on using the full two-factor model for structural hypotheses. The biggest issue is the eight-item operations score. Statement frequency, account privacy, and loan processing seem to capture different parts of the member experience, and q11 had almost no spread.
+
+Before moving on, I would revisit how the questionnaire defines operational effectiveness and check whether statement-related items and loan-service items make more sense as separate measures. That would need enough informative items for each proposed factor and a new model comparison. I kept the assigned model intact here. This CFA assesses the measures themselves. The case hypotheses about loan use, residence, and service ratings would require separate tests.
+
+# References
+
+- *Case 31: Employees Federal Credit Union*. Case questionnaire and cleaned SPSS data.
+- *Construct and Measurement Table* and *Data Analysis Table*. Case 31 course materials.
+- *M13: Measurement Model Assessment*. Assignment instructions and loading guidelines.
+
+# Appendix
+
+- [GH Repo](https://github.com/itsnik1/IC-Case-31)
+- Published Page
