@@ -248,4 +248,4 @@ Before moving on, I would revisit how the questionnaire defines operational effe
 # Appendix
 
 - [GH Repo](https://github.com/itsnik1/IC-Case-31)
-- Published Page
+- [Published Page](https://itsnik1.github.io/IC-Case-31/M13-Measurement-Model-Assessment.html)
